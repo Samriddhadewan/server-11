@@ -28,7 +28,6 @@ async function run() {
     // add volunteer need post here 
     app.post("/add-post", async (req, res) => {
       const jobData = req.body;
-      console.log(jobData);
       const result = await postCollection.insertOne(jobData);
       res.send(result)
     });
@@ -71,6 +70,26 @@ async function run() {
       res.send(result);
     });
 
+    // get my posted jobs here 
+    app.get("/posts/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { 'organizer.email': email };
+      const result = await postCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // update a post here 
+    app.put("/update-post/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: updateData
+      }
+      const result = await postCollection.updateOne(filter, updateDoc, options);
+      res.send(result);
+    });
 
 
 
