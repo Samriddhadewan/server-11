@@ -1,45 +1,98 @@
-const express = require('express');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
-
-
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
-const port = process.env.port || 7000;
+const port = process.env.port || 5000;
 
 app.use(cors());
-app.use(express.json())
+app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@phassignment.y94e1.mongodb.net/?appName=phAssignment`;
 
 const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    }
-  });
-  async function run() {
-    try {
-      // Connect the client to the server	(optional starting in v4.7)
-      await client.connect();
-      // Send a ping to confirm a successful connection
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-      // Ensures that the client will close when you finish/error
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+async function run() {
+  try {
+    const db = client.db("assignment11");
+    const postCollection = db.collection("posts");
+    const requestCollection = db.collection("requests");
+
+
+    // add volunteer need post here 
+    app.post("/add-post", async (req, res) => {
+      const jobData = req.body;
+      console.log(jobData);
+      const result = await postCollection.insertOne(jobData);
+      res.send(result)
+    });
+
+    // get all the posted jobs here 
+    app.get("/posts", async (req, res) => {
+      const result = await postCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get a single post by id 
+    app.get("/post/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await postCollection.findOne(query);
+      res.send(result);
+    });
+
+    // const add request here 
+    app.post("/add-request", async (req, res) => {
+      const requestData = req.body;
+      
+      const query = { email : requestData.email, postId: requestData.postId };
+      const existingRequest = await requestCollection.findOne(query);
+      if(existingRequest) {
+        return res.status(400).send({ message: "You have already applied for this campaign" });
+      }
+      const result = await requestCollection.insertOne(requestData);
+
+      
+      const filter = {_id : new ObjectId(requestData.postId)};
+      const updateDoc = {
+        $inc : {
+          request_count : 1}
+      }
+
+      const updateRequestCount = await postCollection.updateOne(filter, updateDoc);
+
+
+      res.send(result);
+    });
+
+
+
+
+
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
+    // Send a ping to confirm a successful connection
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
+  } finally {
+    // Ensures that the client will close when you finish/error
     //   await client.close();
-    }
   }
-  run().catch(console.dir);
+}
+run().catch(console.dir);
 
+app.get("/", (req, res) => {
+  res.send("assignment 11 backend is here");
+});
 
-
-app.get("/", (req, res)=>{
-    res.send("assignment 11 backend is here")
-})
-
-app.listen(port, ()=>{
-    console.log(`Server is running on port ${port}`)
-})
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
