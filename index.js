@@ -2,20 +2,21 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 const port = process.env.port || 5000;
-
 const corsOptions = {
   origin: ["http://localhost:5174", "http://localhost:5173"],
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
+app.use(cookieParser());
 app.use(cors(corsOptions));
 app.use(express.json());
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@phassignment.y94e1.mongodb.net/?appName=phAssignment`;
 
@@ -26,6 +27,23 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden access" });
+    }
+    req.user = decoded;
+  });
+  next();
+}
+
+
+
 async function run() {
   try {
     const db = client.db("assignment11");
@@ -73,7 +91,7 @@ async function run() {
     });
 
     // get a single post by id
-    app.get("/post/:id", async (req, res) => {
+    app.get("/post/:id",  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await postCollection.findOne(query);
@@ -109,15 +127,19 @@ async function run() {
     });
 
     // get my posted jobs here
-    app.get("/posts/:email", async (req, res) => {
+    app.get("/posts/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
       const query = { "organizer.email": email };
       const result = await postCollection.find(query).toArray();
       res.send(result);
     });
 
     // update a post here
-    app.put("/update-post/:id", async (req, res) => {
+    app.put("/update-post/:id",  async (req, res) => {
       const id = req.params.id;
       const updateData = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -136,15 +158,19 @@ async function run() {
       res.send(result);
     });
     // get all the requests by email here
-    app.get("/requests/:email", async (req, res) => {
+    app.get("/requests/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const decodedEmail = req.user.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
       const query = { email: email };
       const result = await requestCollection.find(query).toArray();
       res.send(result);
     });
     // delete request here
 
-    app.delete("/delete-request/:id", async (req, res) => {
+    app.delete("/delete-request/:id",  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const filter = { _id: new ObjectId(id) };
