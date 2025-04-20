@@ -83,12 +83,30 @@ async function run() {
     // get all the posted jobs here
     app.get("/posts", async (req, res) => {
       const search = req.query.search;
+      const size = parseInt(req.query.size);
+      const page = parseInt(req.query.page);
+      console.log(req.query);
+      console.log(page, size)
       let query = {
         title: { $regex: search, $options: "i" },
       };
-      const result = await postCollection.find(query).toArray();
+      const result = await postCollection.find(query)
+      .skip(page * size)
+      .limit(size)
+      .toArray();
       res.send(result);
     });
+
+    app.get("/total-posts", async (req, res) => {
+      const result = await postCollection.find().toArray();
+      res.send(result);
+    })
+  
+
+    app.get("/posts-up", async(req, res)=>{
+      const result = await postCollection.find().sort({deadline : 1}).limit(6).toArray();
+      res.send(result);
+    })
 
     // get a single post by id
     app.get("/post/:id",  async (req, res) => {
